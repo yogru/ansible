@@ -1,0 +1,24 @@
+---
+- name: set cli mode
+  hosts: localhost
+  become: true
+  gather_facts: no
+  tasks:
+    - name: stop lightdm
+      become: yes
+      command: service lightdm stop
+      ignore_errors: true
+    
+    - name: copy grub
+      copy:
+        src:  ./files/grub
+        dest: /etc/default/grub
+      # mode: 700
+
+    - name: set multi-user.target
+      become: yes
+      command: systemctl set-default multi-user.target
+
+    - name: update grub
+      become: yes
+      command: update-grub
