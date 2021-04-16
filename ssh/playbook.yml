@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    - homeDir: /home/{{username}}
+  tasks:
+    - name: install ssh
+      apt: name=ssh state=latest
+
+    - name: install openssh-server
+      apt: name=openssh-server state=latest
+
+    - name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+      openssh_keypair:
+        path: "{{ homeDir }}/.ssh/id_rsa"
+        group: "{{ username }}"
+        owner: "{{ username }}"
+
+    - name: check authorized_keys file
+      stat:
+        path: "{{ homeDir }}/.ssh/authorized_keys"
+      register: stat_result
+
+    - name: create the authorized_keys , if it doesn`t exist already
+      file:
+        path: "{{ homeDir }}/.ssh/authorized_keys"
+        state: touch
+        mode: 0600
+        group: "{{ username }}"
+        owner: "{{ username }}"
+      when: stat_result.stat.exists == False
+
+    - name: cat to authorized_keys
+      shell: "cat {{ homeDir }}/.ssh/id_rsa.pub >> {{ homeDir }}/.ssh/authorized_keys"
+
+    - name: chmod 700 .ssh
+      command: sudo chmod 700 {{ homeDir }}/.ssh
+
+    - name: copy pem
+      copy:
+        src: "{{ homeDir }}/.ssh/id_rsa"
+        dest: "{{ homeDir }}/{{username}}-key.pem"
+        mode: 0400
+        group: "{{ username }}"
+        owner: "{{ username }}"
+
+    - name: copy sshd_config
+      template:
+        src: ./templates/sshd_config.j2
+        dest: /etc/ssh/sshd_config
+
+    - name: restart sshd
+      command: /etc/init.d/ssh restart
